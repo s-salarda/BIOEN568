@@ -1,0 +1,7 @@
+patient#,fs (Hz),age,gender,diagnosis
+113,360,24,F,sinus with baseline drifts
+117,360,36,M,sinus
+201,360,68,M,PVC and AFIB
+203,360,43,M,AFIB and tachycardia with considerable noise including muscle artifact and baseline drifts
+208,360,23,F,fusion PVC
+232,360,76,F,bradycardia caused by first degree AV block
