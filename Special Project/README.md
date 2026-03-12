@@ -1,94 +1,81 @@
 # Baseline Shift Correction in LabVIEW
+The baseline‑shift detection function identifies slow, low‑frequency drift in ECG signals, which can distort waveform interpretation and throw off analyses like R‑peak detection, heart‑rate estimation, or any metric that depends on a stable baseline. This type of drift comes from very low‑frequency components below 0.5 Hz, usually tied to respiration, electrode motion, or gradual sensor offset. By isolating that band and comparing the current window’s mean to the previous baseline, the function gives a lightweight, real‑time indicator of when the ECG baseline is no longer stable. This matters because it helps clinicians or algorithms immediately recognize when signal quality has degraded, which supports more reliable physiological measurements and prevents misinterpretation when the data starts shifting underneath the actual cardiac activity.
 
 ## 1. Working Principle
-This project detects low‑frequency baseline drift in ECG signals — a common artifact caused by respiration, electrode motion, or gradual sensor offset. Baseline drift is dominated by frequencies below 0.5 Hz, so the system isolates this component using a 0.5 Hz low‑pass filter.
-
-After filtering, the system computes:
-
-- The current window mean
-
-- The baseline mean (previous window)
-
-- The difference array between the two
-
-- The maximum baseline shift magnitude
-
-If the maximum difference exceeds a threshold (0.05 mV), the system flags a Baseline Shift Indicator = TRUE.
-
-This allows real‑time detection of slow drift without affecting the higher‑frequency ECG morphology.
+This project is centered around detecting that slow, low‑frequency drift in ECG signals by isolating the part of the waveform that actually shows the baseline movement. Baseline drift specifically shows up in the frequency range below 0.5 Hz, so the function first low‑pass filters the ECG to pull out that slow component. Once that’s isolated, the function looks at the mean of the current window defined by the number of samples inside the for loop, which iterates through the filtered ECG and builds an array of differences between the current window’s mean and the previous baseline mean. More specifically, the loop walks through the signal one window at a time, constantly updating the “current mean” and comparing it to the stored baseline to see how much the baseline is shifting. Since the baseline should stay relatively stable in clean ECG, any meaningful change in that low‑frequency mean reflects drift. That’s why the difference array and the max‑difference calculation are pulled since they quantify how far the baseline is moving and whether it crosses the threshold where drift is defined. This gives a lightweight indicator of when the ECG baseline is no longer stable.
 
 ## 2. Rationale Behind the Design
-Baseline drift is a slow, smooth artifact, so a low‑pass filter is the most direct way to isolate it. Using a 0.5 Hz cutoff ensures that only drift‑related components remain while preserving the true ECG waveform for downstream analysis.
-
-A dynamic mean‑difference method was chosen because:
-
-It adapts to patient‑specific baseline levels
-
-It avoids fixed thresholds that fail across subjects
-
-It is computationally lightweight and suitable for real‑time LabVIEW execution
-
-This design balances simplicity, robustness, and clinical interpretability.
+The rationale behind this design is that baseline drift is a slow, low‑frequency problem, so the simplest and most reliable way to detect it is to isolate the part of the ECG that actually contains that drift. A 0.5 Hz low‑pass filter cleanly separates the baseline movement from the real cardiac activity, which keeps the rest of the signal untouched. From there, using a windowed mean inside the for loop makes sense because it lets the function track how the baseline changes over time instead of assuming it stays constant. The loop updates the current mean every iteration and compares it to the previous baseline, which gives a direct measure of how much the baseline is shifting. Building an array of these differences also makes it easy to quantify the drift and check whether it crosses the threshold where it becomes a problem. 
 
 ## 3. Example Input-Output Pairs
-Example 1 — Clean ECG (No Drift)
+### Example 1 — Clean ECG Data (No Drift)
 Input:
 
-- Patient ECG with stable baseline
+- Patients 117, 201, 208, and 232, raw ECG.csv with a sample rate of 360 Hz.
+
+- Duration: 10s
 
 - Simulated noise amplitude: 0.2
 
 Output:
 
-- Max baseline shift magnitude: 0.018
+- Max baseline shift magnitude:
+  - Patient 117: 0.029977
+  - Patient 201: 0.0242792
+  - Patient 208: 0.0487872
+  - Patient 232: 0.000338623
 
-- Threshold: 0.05
-
-- Baseline Shift Indicator: FALSE
+- Baseline Shift Indicator:
+  - Patient 117: F
+  - Patient 201: F
+  - Patient 208: F
+  - Patient 232: F
 
 - Interpretation: No significant drift detected.
 
-Example 2 — Drifted ECG (Real Patient)
+### Example 2 — Drifted ECG (Real Patient)
 Input:
 
-- Patient with known baseline drift
+- PPatient 113 and 203, raw ECG.csv with a sample rate of 360 Hz.
 
-- Low‑frequency drift visible in raw signal
+- Duration: 10s
+
+- Simulated noise amplitude: 0.2
 
 Output:
 
-- Max baseline shift magnitude: 0.091
+- Max baseline shift magnitude:
+  - Patient 113: 0.0229066
+  - Patient 203: 0.157287
 
-- Threshold: 0.05
 
-- Baseline Shift Indicator: TRUE
+- Baseline Shift Indicator:
+  - Patient 113: F
+  - Patient 203: T
 
-- Interpretation: Drift successfully detected.
-
-Example 3 — Simulated Drift Injection
+### Example 3 — Simulated Drift in Patients with Clean ECGs
 Input:
 
-- Clean patient ECG
+- Run three times per patient
 
-- Added synthetic drift with amplitude = 2
+- Duration: 10s
+
+- Simulated noise amplitude: 0.2
 
 Output:
 
-- Patients 117 & 201: drift detected
+- Max baseline shift magnitude for 3 trials:
+  - Patient 117: 0.00773368, 0.0579927, 0.0209488
+  - Patient 201: 0.00861307, 0.0302622, 0.0090252
+  - Patient 208: 0.0513655, 0.0310657, 0.0483109
+  - Patient 232: 0.00335716, 9.19769E-5, 0.00152942
 
-- Patients 208 & 232: drift detected at amplitude 1.2
-
-- Baseline Shift Indicator: TRUE
-
-This demonstrates the system’s sensitivity across multiple subjects.
+- Baseline Shift Indicator:
+  - Patient 117: T, F, T
+  - Patient 201: F, F, F
+  - Patient 208: T, F, F
+  - Patient 232: F, F, F
 
 ## 4. Suggestions for Future Improvements
-- Adaptive thresholding: Automatically adjust the 0.05 threshold based on noise statistics.
+Instead of using a fixed 0.05 threshold, the function could automatically adjust the threshold based on the noise statistics of the filtered baseline signal. Right now, the detector isn’t sensitive to small baseline changes because the threshold doesn’t scale with the actual variability of the signal. An adaptive approach would calculate something like the rolling standard deviation, RMS, or MAD of the low‑frequency component and set the threshold relative to that. This would improve the detector’s ability to respond to subtle baseline shifts, addressing the current function’s limited sensitivity to small‑amplitude drifts.
 
-- Hysteresis logic: Reduce false positives by requiring sustained drift before triggering.
-
-- Polynomial detrending: Compare performance against higher‑order drift removal.
-
-- Visualization panel: Plot drift vs. corrected signal for easier debugging.
-
-- Window‑size optimization: Tune sample size for different sampling rates or patient conditions.
