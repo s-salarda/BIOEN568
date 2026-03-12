@@ -1,59 +1,94 @@
-Baseline Shift Correction in LabVIEW
-This project implements a real‑time baseline‑shift correction system for analog signals using LabVIEW. Baseline drift—slow, low‑frequency movement of the signal—is common in physiological, mechanical, and environmental sensors. The goal of this project is to estimate the baseline, remove it, and output a clean, drift‑corrected waveform suitable for analysis or downstream processing.
+# Baseline Shift Correction in LabVIEW
 
-1. Working Principle
-Baseline drift is treated as a slow trend added to the true signal. To correct it, the system computes a baseline estimate and subtracts it:
+## 1. Working Principle
+This project detects low‑frequency baseline drift in ECG signals — a common artifact caused by respiration, electrode motion, or gradual sensor offset. Baseline drift is dominated by frequencies below 0.5 Hz, so the system isolates this component using a 0.5 Hz low‑pass filter.
 
-corrected
-(
-𝑡
-)
-=
-raw
-(
-𝑡
-)
-−
-baseline
-(
-𝑡
-)
-This project provides three LabVIEW‑compatible baseline‑removal methods:
+After filtering, the system computes:
 
-A. High‑Pass Filtering
-A low‑cutoff high‑pass filter removes slow drift while preserving meaningful features.
+- The current window mean
 
-Implemented using LabVIEW’s Highpass Filter.vi
+- The baseline mean (previous window)
 
-Typical cutoff: 0.1–1 Hz depending on the application
+- The difference array between the two
 
-Best for continuous signals like ECG, pressure, or motion sensors
+- The maximum baseline shift magnitude
 
-B. Moving Average Baseline Subtraction
-A long‑window moving average tracks only slow changes and serves as the baseline.
+If the maximum difference exceeds a threshold (0.05 mV), the system flags a Baseline Shift Indicator = TRUE.
 
-Implemented using Mean PtByPt.vi
+This allows real‑time detection of slow drift without affecting the higher‑frequency ECG morphology.
 
-Window length: 500–2000 samples
+## 2. Rationale Behind the Design
+Baseline drift is a slow, smooth artifact, so a low‑pass filter is the most direct way to isolate it. Using a 0.5 Hz cutoff ensures that only drift‑related components remain while preserving the true ECG waveform for downstream analysis.
 
-Baseline is subtracted from the raw signal in real time
+A dynamic mean‑difference method was chosen because:
 
-C. Polynomial Detrending
-A low‑order polynomial is fit to the waveform and removed.
+It adapts to patient‑specific baseline levels
 
-Implemented using Polynomial Fit.vi
+It avoids fixed thresholds that fail across subjects
 
-Suitable for curved or long‑duration drift
+It is computationally lightweight and suitable for real‑time LabVIEW execution
 
-2. Rationale Behind the Design
-The design focuses on robustness, interpretability, and real‑time performance:
+This design balances simplicity, robustness, and clinical interpretability.
 
-High‑pass filtering is a standard DSP approach for drift removal and works well for most sensor data.
+## 3. Example Input-Output Pairs
+Example 1 — Clean ECG (No Drift)
+Input:
 
-Moving average subtraction is intuitive, easy to visualize, and ideal for teaching environments.
+- Patient ECG with stable baseline
 
-Polynomial detrending handles non‑linear drift patterns without distorting higher‑frequency components.
+- Simulated noise amplitude: 0.2
 
-All methods are modular, allowing users to swap techniques without redesigning the entire VI.
+Output:
 
-This flexibility makes the system suitable for labs, prototyping, and educational demonstrations.
+- Max baseline shift magnitude: 0.018
+
+- Threshold: 0.05
+
+- Baseline Shift Indicator: FALSE
+
+- Interpretation: No significant drift detected.
+
+Example 2 — Drifted ECG (Real Patient)
+Input:
+
+- Patient with known baseline drift
+
+- Low‑frequency drift visible in raw signal
+
+Output:
+
+- Max baseline shift magnitude: 0.091
+
+- Threshold: 0.05
+
+- Baseline Shift Indicator: TRUE
+
+- Interpretation: Drift successfully detected.
+
+Example 3 — Simulated Drift Injection
+Input:
+
+- Clean patient ECG
+
+- Added synthetic drift with amplitude = 2
+
+Output:
+
+- Patients 117 & 201: drift detected
+
+- Patients 208 & 232: drift detected at amplitude 1.2
+
+- Baseline Shift Indicator: TRUE
+
+This demonstrates the system’s sensitivity across multiple subjects.
+
+## 4. Suggestions for Future Improvements
+- Adaptive thresholding: Automatically adjust the 0.05 threshold based on noise statistics.
+
+- Hysteresis logic: Reduce false positives by requiring sustained drift before triggering.
+
+- Polynomial detrending: Compare performance against higher‑order drift removal.
+
+- Visualization panel: Plot drift vs. corrected signal for easier debugging.
+
+- Window‑size optimization: Tune sample size for different sampling rates or patient conditions.
