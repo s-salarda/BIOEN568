@@ -33,7 +33,7 @@ Output:
 
 - Interpretation: No significant drift detected.
 
-### Example 2 — Drifted ECG (Real Patient)
+### Example 2 — Drifted ECG Data
 Input:
 
 - PPatient 113 and 203, raw ECG.csv with a sample rate of 360 Hz.
